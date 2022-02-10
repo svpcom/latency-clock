@@ -43,6 +43,8 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "crc32.h"
+
 GST_DEBUG_CATEGORY_STATIC (gst_timeoverlayparse_debug_category);
 #define GST_CAT_DEFAULT gst_timeoverlayparse_debug_category
 
@@ -99,14 +101,8 @@ gst_timeoverlayparse_init (GstTimeOverlayParse *timeoverlayparse)
 {
 }
 
-typedef struct {
-  GstClockTime buffer_time;
-  GstClockTime stream_time;
-  GstClockTime running_time;
-  GstClockTime clock_time;
-  GstClockTime render_time;
-  GstClockTime render_realtime;
-} Timestamps;
+int64_t latency_sum = 0;
+int64_t nframes = 0;
 
 static GstClockTime
 read_timestamp(int lineoffset, unsigned char* buf, size_t stride, int pxsize)
@@ -128,7 +124,9 @@ static GstFlowReturn
 gst_timeoverlayparse_transform_frame_ip (GstVideoFilter * filter, GstVideoFrame * frame)
 {
   //GstTimeOverlayParse *overlay = GST_TIMEOVERLAYPARSE (filter);
-  Timestamps timestamps;
+  //Timestamps timestamps;
+
+  uint64_t clock_time, crc;
   unsigned char * imgdata;
 
   /* GST_DEBUG_OBJECT (overlay, "transform_frame_ip"); */
@@ -180,10 +178,10 @@ gst_timeoverlayparse_transform_frame_ip (GstVideoFilter * filter, GstVideoFrame 
   /*     frame->info.stride[0], frame->info.finfo->pixel_stride[0]); */
   /* timestamps.running_time = read_timestamp (2, imgdata, */
   /*     frame->info.stride[0], frame->info.finfo->pixel_stride[0]); */
-  timestamps.clock_time = read_timestamp (3, imgdata,
+  clock_time = read_timestamp (3, imgdata,
       frame->info.stride[0], frame->info.finfo->pixel_stride[0]);
-  /* timestamps.render_time = read_timestamp (4, imgdata, */
-  /*     frame->info.stride[0], frame->info.finfo->pixel_stride[0]); */
+  crc = read_timestamp (4, imgdata,
+      frame->info.stride[0], frame->info.finfo->pixel_stride[0]);
   /* timestamps.render_realtime = read_timestamp (5, imgdata, */
   /*     frame->info.stride[0], frame->info.finfo->pixel_stride[0]); */
 
@@ -193,8 +191,17 @@ gst_timeoverlayparse_transform_frame_ip (GstVideoFilter * filter, GstVideoFrame 
     return GST_FLOW_OK;
   }
 
-  uint64_t latency = ((uint64_t)tv.tv_sec) * 1000 + ((uint64_t)tv.tv_nsec) / 1000000 - timestamps.clock_time;
-  GST_INFO_OBJECT (filter, "Latency: %lu ms", latency);
+  // Filter garbage frames
+  if (crc == xcrc32((unsigned char*)&clock_time, sizeof(clock_time), 0xffffffff)) {
+    int64_t latency = ((int64_t)tv.tv_sec) * 1000 + ((int64_t)tv.tv_nsec) / 1000000 - (int64_t)clock_time;
+    latency_sum += latency;
+    nframes += 1;
+
+    GST_INFO_OBJECT (filter, "Latency: %ld ms, avg: %ld ms", latency, latency_sum / nframes);
+  } else {
+
+    GST_INFO_OBJECT (filter, "Latency BAD CRC");
+  }
 
   /* GST_DEBUG_OBJECT (filter, "Read timestamps: buffer_time = %" GST_TIME_FORMAT */
   /*     ", stream_time = %" GST_TIME_FORMAT ", running_time = %" GST_TIME_FORMAT */

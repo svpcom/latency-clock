@@ -43,6 +43,8 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "crc32.h"
+
 GST_DEBUG_CATEGORY_STATIC (gst_timestampoverlay_debug_category);
 #define GST_CAT_DEFAULT gst_timestampoverlay_debug_category
 
@@ -188,11 +190,13 @@ draw_timestamp(int lineoffset, GstClockTime timestamp, unsigned char* buf,
 static GstFlowReturn
 gst_timestampoverlay_transform_frame_ip (GstVideoFilter * filter, GstVideoFrame * frame)
 {
-  GstTimeStampOverlay *overlay = GST_TIMESTAMPOVERLAY (filter);
+  //GstTimeStampOverlay *overlay = GST_TIMESTAMPOVERLAY (filter);
 
-  GST_DEBUG_OBJECT (overlay, "transform_frame_ip");
+  //GST_DEBUG_OBJECT (overlay, "transform_frame_ip");
 
   GstClockTime clock_time; //buffer_time, stream_time, running_time, clock_time, latency,
+  uint64_t crc;
+
   //render_time, render_realtime;
   //GstSegment *segment = &GST_BASE_TRANSFORM (overlay)->segment;
   unsigned char * imgdata;
@@ -217,6 +221,7 @@ gst_timestampoverlay_transform_frame_ip (GstVideoFilter * filter, GstVideoFrame 
   }
 
   clock_time = ((uint64_t)tv.tv_sec) * 1000 + ((uint64_t)tv.tv_nsec) / 1000000;
+  crc = xcrc32((unsigned char*)&clock_time, sizeof(clock_time), 0xffffffff);
 
   GST_DEBUG ("buffer with timestamp %lu", clock_time);
 
@@ -255,8 +260,8 @@ gst_timestampoverlay_transform_frame_ip (GstVideoFilter * filter, GstVideoFrame 
   /*     frame->info.finfo->pixel_stride[0]); */
   draw_timestamp (3, clock_time, imgdata, frame->info.stride[0],
       frame->info.finfo->pixel_stride[0]);
-  /* draw_timestamp (4, render_time, imgdata, frame->info.stride[0], */
-  /*     frame->info.finfo->pixel_stride[0]); */
+  draw_timestamp (4, crc, imgdata, frame->info.stride[0],
+      frame->info.finfo->pixel_stride[0]);
   /* draw_timestamp (5, render_realtime, imgdata, frame->info.stride[0], */
   /*     frame->info.finfo->pixel_stride[0]); */
 

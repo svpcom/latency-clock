@@ -7,6 +7,7 @@ libgsttimeoverlayparse.so : \
         gsttimestampoverlay.h \
         gsttimeoverlayparse.c \
         gsttimeoverlayparse.h \
+        crc32.c \
         plugin.c
 	$(CC) -o$@ --shared -fPIC $^ $(CFLAGS) \
 	    $$(pkg-config --cflags --libs gstreamer-1.0 gstreamer-video-1.0)
