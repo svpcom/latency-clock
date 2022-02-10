@@ -39,6 +39,8 @@
 #include <gst/video/gstvideofilter.h>
 #include "gsttimestampoverlay.h"
 
+#include <time.h>
+#include <stdint.h>
 #include <string.h>
 
 GST_DEBUG_CATEGORY_STATIC (gst_timestampoverlay_debug_category);
@@ -190,43 +192,51 @@ gst_timestampoverlay_transform_frame_ip (GstVideoFilter * filter, GstVideoFrame 
 
   GST_DEBUG_OBJECT (overlay, "transform_frame_ip");
 
-  GstClockTime buffer_time, stream_time, running_time, clock_time, latency,
-      render_time, render_realtime;
-  GstSegment *segment = &GST_BASE_TRANSFORM (overlay)->segment;
+  GstClockTime clock_time; //buffer_time, stream_time, running_time, clock_time, latency,
+  //render_time, render_realtime;
+  //GstSegment *segment = &GST_BASE_TRANSFORM (overlay)->segment;
   unsigned char * imgdata;
 
-  buffer_time = GST_BUFFER_TIMESTAMP (frame->buffer);
+  //buffer_time = GST_BUFFER_TIMESTAMP (frame->buffer);
 
-  if (!GST_CLOCK_TIME_IS_VALID (buffer_time)) {
-    GST_DEBUG_OBJECT (filter, "Can't draw timestamps: buffer timestamp is "
-        "invalid");
-    return GST_FLOW_OK;
-  }
+  /* if (!GST_CLOCK_TIME_IS_VALID (buffer_time)) { */
+  /*   GST_DEBUG_OBJECT (filter, "Can't draw timestamps: buffer timestamp is " */
+  /*       "invalid"); */
+  /*   return GST_FLOW_OK; */
+  /* } */
 
   if (frame->info.stride[0] < (8 * frame->info.finfo->pixel_stride[0] * 64)) {
     GST_WARNING_OBJECT (filter, "Can't draw timestamps: video-frame is to narrow");
     return GST_FLOW_OK;
   }
 
-  GST_DEBUG ("buffer with timestamp %" GST_TIME_FORMAT,
-      GST_TIME_ARGS (buffer_time));
+  struct timespec tv;
+  if (clock_gettime(CLOCK_REALTIME, &tv) != 0) {
+    GST_WARNING_OBJECT (filter, "clock_gettime failed");
+    return GST_FLOW_OK;
+  }
 
-  stream_time = gst_segment_to_stream_time (segment, GST_FORMAT_TIME,
-      buffer_time);
-  running_time = gst_segment_to_running_time (segment, GST_FORMAT_TIME,
-      buffer_time);
-  clock_time = running_time + gst_element_get_base_time (GST_ELEMENT (overlay));
+  clock_time = ((uint64_t)tv.tv_sec) * 1000 + ((uint64_t)tv.tv_nsec) / 1000000;
 
-  latency = overlay->latency;
-  if (GST_CLOCK_TIME_IS_VALID (latency))
-    render_time = clock_time + latency;
-  else
-    render_time = clock_time;
+  GST_DEBUG ("buffer with timestamp %lu", clock_time);
 
-  GST_OBJECT_LOCK (overlay->realtime_clock);
-  render_realtime = gst_clock_unadjust_unlocked (
-      overlay->realtime_clock, render_time);
-  GST_OBJECT_UNLOCK (overlay->realtime_clock);
+  /* stream_time = gst_segment_to_stream_time (segment, GST_FORMAT_TIME, */
+  /*     buffer_time); */
+  /* running_time = gst_segment_to_running_time (segment, GST_FORMAT_TIME, */
+  /*     buffer_time); */
+
+  /* latency = overlay->latency; */
+  /* if (GST_CLOCK_TIME_IS_VALID (latency)) */
+  /*   render_time = clock_time + latency; */
+  /* else */
+  /*   render_time = clock_time; */
+
+  /* GST_OBJECT_LOCK (overlay->realtime_clock); */
+  /* render_realtime = gst_clock_unadjust_unlocked ( */
+  /*     overlay->realtime_clock, render_time); */
+  /* GST_OBJECT_UNLOCK (overlay->realtime_clock); */
+
+  /* //render_realtime = render_time; */
 
   imgdata = frame->data[0];
 
@@ -237,18 +247,18 @@ gst_timestampoverlay_transform_frame_ip (GstVideoFilter * filter, GstVideoFrame 
   imgdata += (frame->info.width - 64 * 8) * frame->info.finfo->pixel_stride[0]
       / 2;
 
-  draw_timestamp (0, buffer_time, imgdata, frame->info.stride[0],
-      frame->info.finfo->pixel_stride[0]);
-  draw_timestamp (1, stream_time, imgdata, frame->info.stride[0],
-      frame->info.finfo->pixel_stride[0]);
-  draw_timestamp (2, running_time, imgdata, frame->info.stride[0],
-      frame->info.finfo->pixel_stride[0]);
+  /* draw_timestamp (0, buffer_time, imgdata, frame->info.stride[0], */
+  /*     frame->info.finfo->pixel_stride[0]); */
+  /* draw_timestamp (1, stream_time, imgdata, frame->info.stride[0], */
+  /*     frame->info.finfo->pixel_stride[0]); */
+  /* draw_timestamp (2, running_time, imgdata, frame->info.stride[0], */
+  /*     frame->info.finfo->pixel_stride[0]); */
   draw_timestamp (3, clock_time, imgdata, frame->info.stride[0],
       frame->info.finfo->pixel_stride[0]);
-  draw_timestamp (4, render_time, imgdata, frame->info.stride[0],
-      frame->info.finfo->pixel_stride[0]);
-  draw_timestamp (5, render_realtime, imgdata, frame->info.stride[0],
-      frame->info.finfo->pixel_stride[0]);
+  /* draw_timestamp (4, render_time, imgdata, frame->info.stride[0], */
+  /*     frame->info.finfo->pixel_stride[0]); */
+  /* draw_timestamp (5, render_realtime, imgdata, frame->info.stride[0], */
+  /*     frame->info.finfo->pixel_stride[0]); */
 
   return GST_FLOW_OK;
 }

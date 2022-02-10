@@ -48,9 +48,9 @@ int main(int argc, char* argv[])
 
   epipeline = gst_parse_launch (g_strdup_printf (
       "%s "
-      "! video/x-raw,width=1280,height=720 "
+      "! video/x-raw,width=640,height=360 "
       "! timeoverlayparse "
-      "! fakesink", source_pipeline), &err);
+      "! videoconvert ! xvimagesink", source_pipeline), &err);
 
   if (err) {
     fprintf(stderr, "Error creating pipeline: %s\n", err->message);

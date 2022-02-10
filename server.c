@@ -187,5 +187,5 @@ get_current_mode (void)
   return g_strdup_printf ("video/x-raw,width=640,height=240,framerate=%i/%i",
       fps.n, fps.d);
 error:
-  return "video/x-raw,width=640,height=240,framerate=50/1";
+  return "video/x-raw,width=640,height=360,framerate=30/1";
 }

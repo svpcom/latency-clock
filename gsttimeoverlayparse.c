@@ -39,6 +39,8 @@
 #include <gst/video/gstvideofilter.h>
 #include "gsttimeoverlayparse.h"
 
+#include <time.h>
+#include <stdint.h>
 #include <string.h>
 
 GST_DEBUG_CATEGORY_STATIC (gst_timeoverlayparse_debug_category);
@@ -125,43 +127,43 @@ read_timestamp(int lineoffset, unsigned char* buf, size_t stride, int pxsize)
 static GstFlowReturn
 gst_timeoverlayparse_transform_frame_ip (GstVideoFilter * filter, GstVideoFrame * frame)
 {
-  GstTimeOverlayParse *overlay = GST_TIMEOVERLAYPARSE (filter);
+  //GstTimeOverlayParse *overlay = GST_TIMEOVERLAYPARSE (filter);
   Timestamps timestamps;
   unsigned char * imgdata;
 
-  GST_DEBUG_OBJECT (overlay, "transform_frame_ip");
+  /* GST_DEBUG_OBJECT (overlay, "transform_frame_ip"); */
 
-  GstClockTime buffer_time, running_time, clock_time;
-  GstClockTimeDiff latency;
-  GstSegment *segment = &GST_BASE_TRANSFORM (overlay)->segment;
+  /* GstClockTime /\* buffer_time, running_time, *\/ clock_time; */
+  /* GstClockTimeDiff latency; */
+  /* GstSegment *segment = &GST_BASE_TRANSFORM (overlay)->segment; */
 
-  buffer_time = GST_BUFFER_TIMESTAMP (frame->buffer);
+  /* buffer_time = GST_BUFFER_TIMESTAMP (frame->buffer); */
 
-  if (!GST_CLOCK_TIME_IS_VALID (buffer_time)) {
-    GST_DEBUG_OBJECT (filter, "Can't measure latency: buffer timestamp is "
-        "invalid");
-    return GST_FLOW_OK;
-  }
+  /* if (!GST_CLOCK_TIME_IS_VALID (buffer_time)) { */
+  /*   GST_DEBUG_OBJECT (filter, "Can't measure latency: buffer timestamp is " */
+  /*       "invalid"); */
+  /*   return GST_FLOW_OK; */
+  /* } */
 
   if (frame->info.stride[0] < (8 * frame->info.finfo->pixel_stride[0] * 64)) {
     GST_WARNING_OBJECT (filter, "Can't read timestamps: video-frame is to narrow");
     return GST_FLOW_OK;
   }
 
-  GST_DEBUG ("buffer with timestamp %" GST_TIME_FORMAT,
-      GST_TIME_ARGS (buffer_time));
+  /* GST_DEBUG ("buffer with timestamp %" GST_TIME_FORMAT, */
+  /*     GST_TIME_ARGS (buffer_time)); */
 
-  running_time = gst_segment_to_running_time (segment, GST_FORMAT_TIME,
-      buffer_time);
-  clock_time = running_time + gst_element_get_base_time (GST_ELEMENT (overlay));
+  /* running_time = gst_segment_to_running_time (segment, GST_FORMAT_TIME, */
+  /*     buffer_time); */
+  /* clock_time = running_time + gst_element_get_base_time (GST_ELEMENT (overlay)); */
 
-  GST_DEBUG_OBJECT (filter, "Buffer timestamps"
-      ": buffer_time = %" GST_TIME_FORMAT
-      ", running_time = %" GST_TIME_FORMAT
-      ", clock_time = %" GST_TIME_FORMAT,
-      GST_TIME_ARGS(buffer_time),
-      GST_TIME_ARGS(running_time),
-      GST_TIME_ARGS(clock_time));
+  /* GST_DEBUG_OBJECT (filter, "Buffer timestamps" */
+  /*     ": buffer_time = %" GST_TIME_FORMAT */
+  /*     ", running_time = %" GST_TIME_FORMAT */
+  /*     ", clock_time = %" GST_TIME_FORMAT, */
+  /*     GST_TIME_ARGS(buffer_time), */
+  /*     GST_TIME_ARGS(running_time), */
+  /*     GST_TIME_ARGS(clock_time)); */
 
   imgdata = frame->data[0];
 
@@ -172,34 +174,43 @@ gst_timeoverlayparse_transform_frame_ip (GstVideoFilter * filter, GstVideoFrame 
   imgdata += (frame->info.width - 64 * 8) * frame->info.finfo->pixel_stride[0]
       / 2;
 
-  timestamps.buffer_time = read_timestamp (0, imgdata,
-      frame->info.stride[0], frame->info.finfo->pixel_stride[0]);
-  timestamps.stream_time = read_timestamp (1, imgdata,
-      frame->info.stride[0], frame->info.finfo->pixel_stride[0]);
-  timestamps.running_time = read_timestamp (2, imgdata,
-      frame->info.stride[0], frame->info.finfo->pixel_stride[0]);
+  /* timestamps.buffer_time = read_timestamp (0, imgdata, */
+  /*     frame->info.stride[0], frame->info.finfo->pixel_stride[0]); */
+  /* timestamps.stream_time = read_timestamp (1, imgdata, */
+  /*     frame->info.stride[0], frame->info.finfo->pixel_stride[0]); */
+  /* timestamps.running_time = read_timestamp (2, imgdata, */
+  /*     frame->info.stride[0], frame->info.finfo->pixel_stride[0]); */
   timestamps.clock_time = read_timestamp (3, imgdata,
       frame->info.stride[0], frame->info.finfo->pixel_stride[0]);
-  timestamps.render_time = read_timestamp (4, imgdata,
-      frame->info.stride[0], frame->info.finfo->pixel_stride[0]);
-  timestamps.render_realtime = read_timestamp (5, imgdata,
-      frame->info.stride[0], frame->info.finfo->pixel_stride[0]);
+  /* timestamps.render_time = read_timestamp (4, imgdata, */
+  /*     frame->info.stride[0], frame->info.finfo->pixel_stride[0]); */
+  /* timestamps.render_realtime = read_timestamp (5, imgdata, */
+  /*     frame->info.stride[0], frame->info.finfo->pixel_stride[0]); */
 
-  GST_DEBUG_OBJECT (filter, "Read timestamps: buffer_time = %" GST_TIME_FORMAT
-      ", stream_time = %" GST_TIME_FORMAT ", running_time = %" GST_TIME_FORMAT
-      ", clock_time = %" GST_TIME_FORMAT ", render_time = %" GST_TIME_FORMAT
-      ", render_realtime = %" GST_TIME_FORMAT,
-      GST_TIME_ARGS(timestamps.buffer_time),
-      GST_TIME_ARGS(timestamps.stream_time),
-      GST_TIME_ARGS(timestamps.running_time),
-      GST_TIME_ARGS(timestamps.clock_time),
-      GST_TIME_ARGS(timestamps.render_time),
-      GST_TIME_ARGS(timestamps.render_realtime));
+  struct timespec tv;
+  if (clock_gettime(CLOCK_REALTIME, &tv) != 0) {
+    GST_WARNING_OBJECT (filter, "clock_gettime failed");
+    return GST_FLOW_OK;
+  }
 
-  latency = clock_time - timestamps.render_realtime;
+  uint64_t latency = ((uint64_t)tv.tv_sec) * 1000 + ((uint64_t)tv.tv_nsec) / 1000000 - timestamps.clock_time;
+  GST_INFO_OBJECT (filter, "Latency: %lu ms", latency);
 
-  GST_INFO_OBJECT (filter, "Latency: %" GST_TIME_FORMAT,
-      GST_TIME_ARGS(latency));
+  /* GST_DEBUG_OBJECT (filter, "Read timestamps: buffer_time = %" GST_TIME_FORMAT */
+  /*     ", stream_time = %" GST_TIME_FORMAT ", running_time = %" GST_TIME_FORMAT */
+  /*     ", clock_time = %" GST_TIME_FORMAT ", render_time = %" GST_TIME_FORMAT */
+  /*     ", render_realtime = %" GST_TIME_FORMAT, */
+  /*     GST_TIME_ARGS(timestamps.buffer_time), */
+  /*     GST_TIME_ARGS(timestamps.stream_time), */
+  /*     GST_TIME_ARGS(timestamps.running_time), */
+  /*     GST_TIME_ARGS(timestamps.clock_time), */
+  /*     GST_TIME_ARGS(timestamps.render_time), */
+  /*     GST_TIME_ARGS(timestamps.render_realtime)); */
+
+  /* latency = -timestamps.render_realtime + clock_time; */
+
+  /* GST_INFO_OBJECT (filter, "Latency: %" GST_TIME_FORMAT, */
+  /*     GST_TIME_ARGS(latency)); */
 
   return GST_FLOW_OK;
 }
